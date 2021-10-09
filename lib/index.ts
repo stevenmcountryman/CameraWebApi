@@ -89,6 +89,11 @@ export class Camera {
         }
     }
 
+    /** Has both front and rear cameras. */
+    public canSwitchCameraDirections(): boolean {
+        return this.rearCameras.length > 0 && this.frontCameras.length > 0;
+    }
+
     /** 
      * Toggle current camera stream for the current direction.
      * @param videoPlayer Video HTML Element to stream the video to.
@@ -99,13 +104,13 @@ export class Camera {
         }
 
         if (this._currDirection === 'Front') {
-            this._currFrontIndex ++;
+            this._currFrontIndex++;
             if (this._currFrontIndex >= this.frontCameras.length) {
                 this._currFrontIndex = 0;
             }
             this.viewCameraStream(videoPlayer, this.frontCameras[this._currFrontIndex]);
         } else if (this._currDirection === 'Rear') {
-            this._currRearIndex ++;
+            this._currRearIndex++;
             if (this._currRearIndex >= this.rearCameras.length) {
                 this._currRearIndex = 0;
             }
@@ -124,6 +129,14 @@ export class Camera {
                 cameraDevice = this.frontCameras[this._currFrontIndex];
             } else if (this._currDirection === 'Rear' && this.rearCameras.length > 0) {
                 cameraDevice = this.rearCameras[this._currRearIndex];
+            } else if (this._currDirection === 'Front' &&
+                this.frontCameras.length === 0 &&
+                this.rearCameras.length > 0) {
+                cameraDevice = this.rearCameras[this._currRearIndex];
+            } else if (this._currDirection === 'Rear' &&
+                this.rearCameras.length === 0 &&
+                this.frontCameras.length > 0) {
+                cameraDevice = this.frontCameras[this._currFrontIndex];
             } else {
                 console.error('No cameras available to stream from.')
                 return;
