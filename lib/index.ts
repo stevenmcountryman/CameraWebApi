@@ -84,7 +84,7 @@ export class Camera {
         } else if (this._currDirection === 'Rear') {
             return this._rearCameras.length > 1;
         } else {
-            console.error('How did we end up here?');
+            console.error('How did we end up here? Unnaceptable outcome in canToggleLenses');
             return false;
         }
     }
@@ -99,7 +99,7 @@ export class Camera {
      * @param videoPlayer Video HTML Element to stream the video to.
      */
     public toggleCurrentCamera(videoPlayer: HTMLVideoElement): void {
-        if (!this.canToggleLenses() || this.isStreaming) {
+        if (!this.canToggleLenses() || !this.isStreaming) {
             return;
         }
 
@@ -115,6 +115,24 @@ export class Camera {
                 this._currRearIndex = 0;
             }
             this.viewCameraStream(videoPlayer, this.rearCameras[this._currRearIndex]);
+        }
+    }
+
+    /**
+     * Switches the camera direction from front to rear or vice-versa
+     * @param videoPlayer Video HTML Element to stream the video to.
+     */
+    public switchCameraDirection(videoPlayer: HTMLVideoElement): void {
+        if (this.canSwitchCameraDirections() || !this.isStreaming) {
+            return;
+        }
+
+        if (this._currDirection === "Front") {
+            this.viewCameraStream(videoPlayer, this.rearCameras[this._currRearIndex]);
+        } else if (this._currDirection === "Rear") {
+            this.viewCameraStream(videoPlayer, this.frontCameras[this._currFrontIndex]);
+        } else {
+            console.error("How did we get here? Unacceptable outcome in switchCameraDirection")
         }
     }
 
