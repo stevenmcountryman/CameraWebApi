@@ -123,7 +123,7 @@ export class Camera {
      * @param videoPlayer Video HTML Element to stream the video to.
      */
     public switchCameraDirection(videoPlayer: HTMLVideoElement): void {
-        if (this.canSwitchCameraDirections() || !this.isStreaming) {
+        if (!this.canSwitchCameraDirections() || !this.isStreaming) {
             return;
         }
 
