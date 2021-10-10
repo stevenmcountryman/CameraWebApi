@@ -127,12 +127,12 @@ export class Camera {
             return;
         }
 
-        if (this._currDirection === "Front") {
+        if (this._currDirection === 'Front') {
             this.viewCameraStream(videoPlayer, this.rearCameras[this._currRearIndex]);
-        } else if (this._currDirection === "Rear") {
+        } else if (this._currDirection === 'Rear') {
             this.viewCameraStream(videoPlayer, this.frontCameras[this._currFrontIndex]);
         } else {
-            console.error("How did we get here? Unacceptable outcome in switchCameraDirection")
+            console.error('How did we get here? Unacceptable outcome in switchCameraDirection')
         }
     }
 

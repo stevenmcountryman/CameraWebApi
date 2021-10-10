@@ -1,11 +1,10 @@
 {
   "name": "camera-web-api",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "A JS library that wraps the Camera Web APIs to return usable devices and streams.",
-  "main": "./lib/index.ts",
+  "main": "./lib/Camera.ts",
   "scripts": {
     "build": "tsc",
-    "test": "echo \"Error: no test specified\" && exit 1",
     "lint": "eslint \"**\\*.ts\""
   },
   "repository": {
