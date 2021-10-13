@@ -3,9 +3,9 @@ interface IDevice {
 }
 
 interface IVideo {
-    width: IDimensions;
-    height: IDimensions;
-    deviceId: IDevice;
+    width: IDimensions | number;
+    height: IDimensions | number;
+    deviceId?: IDevice;
 }
 
 export interface IDimensions {
@@ -16,4 +16,5 @@ export interface IDimensions {
 
 export interface ICameraConstraints {
     video: IVideo;
+    audio: boolean;
 }

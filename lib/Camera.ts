@@ -3,7 +3,7 @@ import { ICameraConstraints, IDimensions } from './ICameraConstraints';
 
 export class Camera {
 
-    private _constaints: ICameraConstraints;
+    protected _constraints!: ICameraConstraints;
     private _isLoading = true;
     private _allCameras: MediaDeviceInfo[] = [];
     private _rearCameras: MediaDeviceInfo[] = [];
@@ -14,26 +14,28 @@ export class Camera {
     private _currDirection: 'Front' | 'Rear' = 'Rear';
     private _isStreaming = false;
 
-    constructor(width: IDimensions, height: IDimensions) {
-        this._constaints = {
-            video: {
-                width: width,
-                height: height,
-                deviceId: {
-                    exact: ''
-                }
+    constructor(width: IDimensions | number, height: IDimensions | number) {
+        if (width !== null && height !== null) {
+            this._constraints = {
+                video: {
+                    width: width,
+                    height: height
+                },
+                audio: false
+            };
+    
+            if (this.isApiSupported()) {
+                this._isLoading = true;
+                this.getCameras().then(success => {
+                    if (success) {
+                        this.loadCameras();
+                    }
+                });
+            } else {
+                console.error('Cannot get camera devices. API not supported.');
             }
-        };
-
-        if (this.isApiSupported()) {
-            this._isLoading = true;
-            this.getCameras().then(success => {
-                if (success) {
-                    this.loadCameras();
-                }
-            });
         } else {
-            console.error('Cannot get camera devices. API not supported.');
+            console.error('Width and Height cannot be null')
         }
     }
 
@@ -187,6 +189,7 @@ export class Camera {
     private getCameras(): Promise<boolean> {
         return navigator.mediaDevices.enumerateDevices().then(devices => {
             this._allCameras = devices.filter(device => device.kind === 'videoinput');
+            console.log('All detected cameras:', this.allCameras);
             return true;
         }).catch(err => {
             console.error('Error enumerating devices', err);
@@ -207,8 +210,10 @@ export class Camera {
     }
 
     private checkStream(device: MediaDeviceInfo): Promise<boolean> {
-        this._constaints.video.deviceId.exact = device.deviceId;
-        return navigator.mediaDevices.getUserMedia(this._constaints)
+        this._constraints.video.deviceId = {
+            exact: device.deviceId
+        };
+        return navigator.mediaDevices.getUserMedia(this._constraints)
             .then(stream => {
                 if (stream) {
                     const rearCam = device.label.toLowerCase().includes('back');
