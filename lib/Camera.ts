@@ -5,15 +5,14 @@ export class Camera {
 
     protected _constraints!: ICameraConstraints;
     private _isLoading = true;
-    private _allCameras: MediaDeviceInfo[] = [];
-    private _rearCameras: MediaDeviceInfo[] = [];
-    private _frontCameras: MediaDeviceInfo[] = [];
+    private _allCameras: ICamera[] = [];
+    private _rearCameras: ICamera[] = [];
+    private _frontCameras: ICamera[] = [];
     private _currFrontIndex = 0;
     private _currRearIndex = 0;
     private _currDirection: 'Front' | 'Rear' = 'Rear';
     private _isStreaming = false;
     private _currCamera!: ICamera;
-    private _currStream!: MediaStream | null;
 
     constructor(width: IDimensions | number, height: IDimensions | number) {
         if (width !== null && height !== null) {
@@ -60,32 +59,17 @@ export class Camera {
 
     /** All available cameras */
     public get allCameras(): ICamera[] {
-        return this._allCameras.map(c => {
-            return {
-                deviceId: c.deviceId,
-                label: c.label
-            }
-        });
+        return this._allCameras;
     }
 
     /** All available rear cameras */
     public get frontCameras(): ICamera[] {
-        return this._frontCameras.map(c => {
-            return {
-                deviceId: c.deviceId,
-                label: c.label
-            }
-        })
+        return this._frontCameras;
     }
 
     /** All available front cameras */
     public get rearCameras(): ICamera[] {
-        return this._rearCameras.map(c => {
-            return {
-                deviceId: c.deviceId,
-                label: c.label
-            }
-        })
+        return this._rearCameras;
     }
 
     /** Has more than 1 available camera in the current direction. */
@@ -178,22 +162,10 @@ export class Camera {
             videoPlayer.srcObject = null;
             this._isStreaming = false;
             setTimeout(() => {
-                const deviceConstraints = <ICameraConstraints>{
-                    audio: this._constraints.audio,
-                    video: {
-                        width: this._constraints.video.width,
-                        height: this._constraints.video.height,
-                        deviceId: {
-                            exact: cameraDevice!.deviceId
-                        },
-                        facingMode: undefined
-                    }
-                };
-                navigator.mediaDevices.getUserMedia(deviceConstraints)
+                navigator.mediaDevices.getUserMedia(cameraDevice!.workingConstraints)
                     .then(stream => {
                         if (stream) {
                             this._currCamera = cameraDevice!;
-                            this._currStream = stream;
                             videoPlayer.srcObject = stream;
                             videoPlayer.play();
                             this._currDirection = cameraDevice!.label.toLowerCase().includes('back') ? 'Rear' : 'Front';
@@ -209,23 +181,16 @@ export class Camera {
         }
     }
 
-    /** Stops curr streams. */
-    public stopStream(): void {
-        if (this._currStream) {
-            this._currStream.getTracks().forEach(track => {
-                track.stop();
-                this._isStreaming = false;
-            });
-        }
-    }
-
     private isApiSupported(): boolean {
         return 'mediaDevices' in navigator && 'getUserMedia' in navigator.mediaDevices;
     }
 
     private getCameras(): Promise<boolean> {
         return navigator.mediaDevices.enumerateDevices().then(devices => {
-            this._allCameras = devices.filter(device => device.kind === 'videoinput');
+            this._allCameras = devices.filter(device => device.kind === 'videoinput').map(c => <ICamera>{
+                deviceId: c.deviceId,
+                label: c.label
+            });
             console.log('All detected cameras:', this.allCameras);
             return true;
         }).catch(err => {
@@ -317,17 +282,16 @@ export class Camera {
         }
     }
 
-    private checkStream(device: MediaDeviceInfo, constraints: ICameraConstraints): Promise<boolean> {
+    private checkStream(device: ICamera, constraints: ICameraConstraints): Promise<boolean> {
         return navigator.mediaDevices.getUserMedia(constraints)
             .then(stream => {
                 if (stream) {
                     const rearCam = device.label.toLowerCase().includes('back');
+                    device.workingConstraints = constraints;
                     if (rearCam) {
                         this._rearCameras.push(device);
-                        stream.getTracks().forEach(t => t.stop());
                     } else {
                         this._frontCameras.push(device);
-                        stream.getTracks().forEach(t => t.stop());
                     }
                 }
                 return true;
