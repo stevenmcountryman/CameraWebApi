@@ -6,6 +6,7 @@ interface IVideo {
     width?: IDimensions | number;
     height?: IDimensions | number;
     deviceId?: IDevice;
+    facingMode?: IDevice;
 }
 
 export interface IDimensions {

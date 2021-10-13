@@ -23,7 +23,7 @@ export class Camera {
                 },
                 audio: false
             };
-    
+
             if (this.isApiSupported()) {
                 this._isLoading = true;
                 this.getCameras().then(success => {
@@ -200,17 +200,30 @@ export class Camera {
     private loadCameras() {
         let loaded = 0;
         this._allCameras.forEach((d) => {
-            this.checkStream(d).then(res => {
+            const newConstraints = <ICameraConstraints>{
+                audio: this._constraints.audio,
+                video: {
+                    width: this._constraints.video.width,
+                    height: this._constraints.video.height,
+                    deviceId: {
+                        exact: d.deviceId
+                    },
+                    facingMode: undefined
+                }
+            };
+            this.checkStream(d, newConstraints).then(res => {
                 if (res) {
                     loaded++;
                     if (loaded === this._allCameras.length) {
-                        this._isLoading = false;
+                        this.checkCamerasLoaded();
                     }
                 } else {
-                    this.checkStream(d, true).then(() => {
+                    newConstraints.video.width = undefined;
+                    newConstraints.video.height = undefined;
+                    this.checkStream(d, newConstraints).then(() => {
                         loaded++;
                         if (loaded === this._allCameras.length) {
-                            this._isLoading = false;
+                            this.checkCamerasLoaded();
                         }
                     });
                 }
@@ -218,18 +231,57 @@ export class Camera {
         });
     }
 
-    private checkStream(device: MediaDeviceInfo, tryNoDimensions?: boolean): Promise<boolean> {
-        const newConstraints = <ICameraConstraints> {
-            audio: this._constraints.audio,
-            video: {
-                width: tryNoDimensions ? undefined : this._constraints.video.width,
-                height: tryNoDimensions ? undefined : this._constraints.video.height,
-                deviceId: {
-                    exact: device.deviceId
+    private checkCamerasLoaded() {
+        if (this._allCameras.length > 0 && this._frontCameras.length > 0 && this._rearCameras.length > 0) {
+            this._isLoading = false;
+            return;
+        }
+
+        let checkedUserFacing = false;
+        let checkedEnvironmentFacing = false;
+        if (this._frontCameras.length === 0) {
+            const newConstraints = <ICameraConstraints>{
+                audio: this._constraints.audio,
+                video: {
+                    width: undefined,
+                    height: undefined,
+                    deviceId: undefined,
+                    facingMode: {
+                        exact: 'user'
+                    }
                 }
-            }
-        };
-        return navigator.mediaDevices.getUserMedia(newConstraints)
+            };
+            this.checkStream(<MediaDeviceInfo>{ deviceId: 'user', label: 'Front Cam'}, newConstraints).then(() => {
+                checkedUserFacing = true;
+                if (checkedUserFacing && checkedEnvironmentFacing) {
+                    this._isLoading = false;
+                }
+            });
+        }
+
+        if (this._rearCameras.length === 0) {
+            const newConstraints = <ICameraConstraints>{
+                audio: this._constraints.audio,
+                video: {
+                    width: undefined,
+                    height: undefined,
+                    deviceId: undefined,
+                    facingMode: {
+                        exact: 'environment'
+                    }
+                }
+            };
+            this.checkStream(<MediaDeviceInfo>{ deviceId: 'user', label: 'Back Cam'}, newConstraints).then(() => {
+                checkedEnvironmentFacing = true;
+                if (checkedUserFacing && checkedEnvironmentFacing) {
+                    this._isLoading = false;
+                }
+            });
+        }
+    }
+
+    private checkStream(device: MediaDeviceInfo, constraints: ICameraConstraints): Promise<boolean> {
+        return navigator.mediaDevices.getUserMedia(constraints)
             .then(stream => {
                 if (stream) {
                     const rearCam = device.label.toLowerCase().includes('back');
