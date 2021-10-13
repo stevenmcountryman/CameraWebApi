@@ -3,8 +3,8 @@ interface IDevice {
 }
 
 interface IVideo {
-    width: IDimensions | number;
-    height: IDimensions | number;
+    width?: IDimensions | number;
+    height?: IDimensions | number;
     deviceId?: IDevice;
 }
 

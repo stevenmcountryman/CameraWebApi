@@ -200,20 +200,36 @@ export class Camera {
     private loadCameras() {
         let loaded = 0;
         this._allCameras.forEach((d) => {
-            this.checkStream(d).then(() => {
-                loaded++;
-                if (loaded === this._allCameras.length) {
-                    this._isLoading = false;
+            this.checkStream(d).then(res => {
+                if (res) {
+                    loaded++;
+                    if (loaded === this._allCameras.length) {
+                        this._isLoading = false;
+                    }
+                } else {
+                    this.checkStream(d, true).then(() => {
+                        loaded++;
+                        if (loaded === this._allCameras.length) {
+                            this._isLoading = false;
+                        }
+                    });
                 }
             });
         });
     }
 
-    private checkStream(device: MediaDeviceInfo): Promise<boolean> {
-        this._constraints.video.deviceId = {
-            exact: device.deviceId
+    private checkStream(device: MediaDeviceInfo, tryNoDimensions?: boolean): Promise<boolean> {
+        const newConstraints = <ICameraConstraints> {
+            audio: this._constraints.audio,
+            video: {
+                width: tryNoDimensions ? undefined : this._constraints.video.width,
+                height: tryNoDimensions ? undefined : this._constraints.video.height,
+                deviceId: {
+                    exact: device.deviceId
+                }
+            }
         };
-        return navigator.mediaDevices.getUserMedia(this._constraints)
+        return navigator.mediaDevices.getUserMedia(newConstraints)
             .then(stream => {
                 if (stream) {
                     const rearCam = device.label.toLowerCase().includes('back');
