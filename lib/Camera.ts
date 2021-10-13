@@ -10,9 +10,10 @@ export class Camera {
     private _frontCameras: MediaDeviceInfo[] = [];
     private _currFrontIndex = 0;
     private _currRearIndex = 0;
-    private _streams = new Map<string, MediaStream>();
     private _currDirection: 'Front' | 'Rear' = 'Rear';
     private _isStreaming = false;
+    private _currCamera!: ICamera;
+    private _currStream!: MediaStream | null;
 
     constructor(width: IDimensions | number, height: IDimensions | number) {
         if (width !== null && height !== null) {
@@ -28,7 +29,7 @@ export class Camera {
                 this._isLoading = true;
 
                 /** Prompt for permissions first - Needed for iOS */
-                navigator.mediaDevices.getUserMedia({ audio: false, video: true})
+                navigator.mediaDevices.getUserMedia({ audio: false, video: true })
                     .then(() => {
                         this.getCameras().then(success => {
                             if (success) {
@@ -153,7 +154,9 @@ export class Camera {
      */
     public viewCameraStream(videoPlayer: HTMLVideoElement, cameraDevice?: ICamera): void {
         if (!cameraDevice) {
-            if (this._currDirection === 'Front' && this.frontCameras.length > 0) {
+            if (this._currCamera) {
+                cameraDevice = this._currCamera;
+            } else if (this._currDirection === 'Front' && this.frontCameras.length > 0) {
                 cameraDevice = this.frontCameras[this._currFrontIndex];
             } else if (this._currDirection === 'Rear' && this.rearCameras.length > 0) {
                 cameraDevice = this.rearCameras[this._currRearIndex];
@@ -175,17 +178,43 @@ export class Camera {
             videoPlayer.srcObject = null;
             this._isStreaming = false;
             setTimeout(() => {
-                if (videoPlayer) {
-                    videoPlayer.srcObject = this._streams.get(cameraDevice!.deviceId) as MediaStream;
-                    videoPlayer.play();
-                    this._currDirection = cameraDevice!.label.toLowerCase().includes('back') ? 'Rear' : 'Front';
-                    if (this._currDirection === 'Front') {
-                        this._currFrontIndex = this.frontCameras.findIndex(c => c.deviceId === cameraDevice!.deviceId);
-                    } else if (this._currDirection === 'Rear') {
-                        this._currRearIndex = this.rearCameras.findIndex(c => c.deviceId === cameraDevice!.deviceId);
+                const deviceConstraints = <ICameraConstraints>{
+                    audio: this._constraints.audio,
+                    video: {
+                        width: this._constraints.video.width,
+                        height: this._constraints.video.height,
+                        deviceId: {
+                            exact: cameraDevice!.deviceId
+                        },
+                        facingMode: undefined
                     }
-                    this._isStreaming = true;
-                }
+                };
+                navigator.mediaDevices.getUserMedia(deviceConstraints)
+                    .then(stream => {
+                        if (stream) {
+                            this._currCamera = cameraDevice!;
+                            this._currStream = stream;
+                            videoPlayer.srcObject = stream;
+                            videoPlayer.play();
+                            this._currDirection = cameraDevice!.label.toLowerCase().includes('back') ? 'Rear' : 'Front';
+                            if (this._currDirection === 'Front') {
+                                this._currFrontIndex = this.frontCameras.findIndex(c => c.deviceId === cameraDevice!.deviceId);
+                            } else if (this._currDirection === 'Rear') {
+                                this._currRearIndex = this.rearCameras.findIndex(c => c.deviceId === cameraDevice!.deviceId);
+                            }
+                            this._isStreaming = true;
+                        }
+                    });
+            });
+        }
+    }
+
+    /** Stops curr streams. */
+    public stopStream(): void {
+        if (this._currStream) {
+            this._currStream.getTracks().forEach(track => {
+                track.stop();
+                this._isStreaming = false;
             });
         }
     }
@@ -295,10 +324,10 @@ export class Camera {
                     const rearCam = device.label.toLowerCase().includes('back');
                     if (rearCam) {
                         this._rearCameras.push(device);
-                        this._streams.set(device.deviceId, stream);
+                        stream.getTracks().forEach(t => t.stop());
                     } else {
                         this._frontCameras.push(device);
-                        this._streams.set(device.deviceId, stream);
+                        stream.getTracks().forEach(t => t.stop());
                     }
                 }
                 return true;
