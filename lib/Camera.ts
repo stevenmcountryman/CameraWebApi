@@ -271,7 +271,7 @@ export class Camera {
                     }
                 }
             };
-            this.checkStream(<MediaDeviceInfo>{ deviceId: 'user', label: 'Back Cam'}, newConstraints).then(() => {
+            this.checkStream(<MediaDeviceInfo>{ deviceId: 'environment', label: 'Back Cam'}, newConstraints).then(() => {
                 checkedEnvironmentFacing = true;
                 if (checkedUserFacing && checkedEnvironmentFacing) {
                     this._isLoading = false;
