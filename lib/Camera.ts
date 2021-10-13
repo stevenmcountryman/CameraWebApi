@@ -23,8 +23,6 @@ export class Camera {
                 },
                 audio: false
             };
-
-            this.getCamerasAndPermissions();
         } else {
             console.error('Width and Height cannot be null')
         }
@@ -53,6 +51,28 @@ export class Camera {
     /** All available front cameras */
     public get rearCameras(): ICamera[] {
         return this._rearCameras;
+    }
+
+    /** Initialized camera permissions and devices. */
+    public initialize(): void {
+        if (this.isApiSupported()) {
+            this._isLoading = true;
+
+            /** Prompt for permissions first - Needed for iOS */
+            navigator.mediaDevices.getUserMedia({ audio: false, video: true })
+                .then(() => {
+                    this.getCameras().then(success => {
+                        if (success) {
+                            this.loadCameras();
+                        }
+                    });
+                })
+                .catch(err => {
+                    console.error('Failed to get necessary camera permissions: ', err);
+                });
+        } else {
+            console.error('Cannot get camera devices. API not supported.');
+        }
     }
 
     /** Has more than 1 available camera in the current direction. */
@@ -162,29 +182,6 @@ export class Camera {
                     });
             });
         }
-    }
-
-    private getCamerasAndPermissions(): void {
-        setTimeout(() => {
-            if (this.isApiSupported()) {
-                this._isLoading = true;
-
-                /** Prompt for permissions first - Needed for iOS */
-                navigator.mediaDevices.getUserMedia({ audio: false, video: true })
-                    .then(() => {
-                        this.getCameras().then(success => {
-                            if (success) {
-                                this.loadCameras();
-                            }
-                        });
-                    })
-                    .catch(err => {
-                        console.error('Failed to get necessary camera permissions: ', err);
-                    });
-            } else {
-                console.error('Cannot get camera devices. API not supported.');
-            }
-        });
     }
 
     private isApiSupported(): boolean {
