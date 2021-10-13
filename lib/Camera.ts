@@ -26,11 +26,19 @@ export class Camera {
 
             if (this.isApiSupported()) {
                 this._isLoading = true;
-                this.getCameras().then(success => {
-                    if (success) {
-                        this.loadCameras();
-                    }
-                });
+
+                /** Prompt for permissions first - Needed for iOS */
+                navigator.mediaDevices.getUserMedia({ audio: false, video: true})
+                    .then(() => {
+                        this.getCameras().then(success => {
+                            if (success) {
+                                this.loadCameras();
+                            }
+                        });
+                    })
+                    .catch(err => {
+                        console.error('Failed to get necessary camera permissions: ', err);
+                    });
             } else {
                 console.error('Cannot get camera devices. API not supported.');
             }
@@ -251,7 +259,7 @@ export class Camera {
                     }
                 }
             };
-            this.checkStream(<MediaDeviceInfo>{ deviceId: 'user', label: 'Front Cam'}, newConstraints).then(() => {
+            this.checkStream(<MediaDeviceInfo>{ deviceId: 'user', label: 'Front Cam' }, newConstraints).then(() => {
                 checkedUserFacing = true;
                 if (checkedUserFacing && checkedEnvironmentFacing) {
                     this._isLoading = false;
@@ -271,7 +279,7 @@ export class Camera {
                     }
                 }
             };
-            this.checkStream(<MediaDeviceInfo>{ deviceId: 'environment', label: 'Back Cam'}, newConstraints).then(() => {
+            this.checkStream(<MediaDeviceInfo>{ deviceId: 'environment', label: 'Back Cam' }, newConstraints).then(() => {
                 checkedEnvironmentFacing = true;
                 if (checkedUserFacing && checkedEnvironmentFacing) {
                     this._isLoading = false;

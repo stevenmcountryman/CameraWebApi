@@ -1,6 +1,6 @@
 {
   "name": "camera-web-api",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "description": "A JS library that wraps the Camera Web APIs to return usable devices and streams.",
   "main": "dist/Camera.js",
   "types": "dist/Camera.d.ts",
