@@ -14,6 +14,9 @@ export class Camera {
     private _isStreaming = false;
     private _currCamera!: ICamera;
 
+    private _initializeResolve?: (value: any) => void;
+    private _initializeReject?: (reason?: any) => void;
+
     constructor(width: IDimensions | number, height: IDimensions | number) {
         if (width !== null && height !== null) {
             this._constraints = {
@@ -53,26 +56,27 @@ export class Camera {
         return this._rearCameras;
     }
 
-    /** Initialized camera permissions and devices. */
-    public initialize(): void {
-        if (this.isApiSupported()) {
-            this._isLoading = true;
+    /** Initialized camera permissions and devices.
+     * @returns a promise when the cameras are initialized. Rejects if fails.
+     */
+    public initialize(): Promise<any> {
+        this._isLoading = true;
+        return new Promise((resolve, reject) => {
+            this._initializeResolve = resolve;
+            this._initializeReject = reject;
 
-            /** Prompt for permissions first - Needed for iOS */
-            navigator.mediaDevices.getUserMedia({ audio: false, video: true })
-                .then(() => {
-                    this.getCameras().then(success => {
-                        if (success) {
-                            this.loadCameras();
-                        }
+            if ('mediaDevices' in navigator && 'getUserMedia' in navigator.mediaDevices) {
+                navigator.mediaDevices.getUserMedia({ audio: false, video: true })
+                    .then(() => {
+                        this.getCameras();
+                    })
+                    .catch(() => {
+                        this._initializeReject!('Failed to get necessary camera permissions.');
                     });
-                })
-                .catch(err => {
-                    console.error('Failed to get necessary camera permissions: ', err);
-                });
-        } else {
-            console.error('Cannot get camera devices. API not supported.');
-        }
+            } else {
+                this._initializeReject('Camera Web APIs not supported by this device.');
+            }
+        });
     }
 
     /** Has more than 1 available camera in the current direction. */
@@ -184,105 +188,93 @@ export class Camera {
         }
     }
 
-    private isApiSupported(): boolean {
-        return 'mediaDevices' in navigator && 'getUserMedia' in navigator.mediaDevices;
-    }
-
-    private getCameras(): Promise<boolean> {
-        return navigator.mediaDevices.enumerateDevices().then(devices => {
-            this._allCameras = devices.filter(device => device.kind === 'videoinput').map(c => <ICamera>{
-                deviceId: c.deviceId,
-                label: c.label
-            });
-            console.log('All detected cameras:', this.allCameras);
-            return true;
-        }).catch(err => {
-            console.error('Error enumerating devices', err);
-            return false;
+    private getCameras(): void {
+        navigator.mediaDevices.enumerateDevices().then(devices => {
+            if (devices && devices.length > 0) {
+                this._allCameras = devices.filter(device => device.kind === 'videoinput').map(c => <ICamera>{
+                    deviceId: c.deviceId,
+                    label: c.label
+                });
+                this.loadCameras();
+            } else {
+                this._initializeReject!('No camera detected.');
+            }
+        }).catch(() => {
+            this._initializeReject!('Error detecting device cameras.');
         });
     }
 
-    private loadCameras() {
-        let loaded = 0;
-        this._allCameras.forEach((d) => {
-            const newConstraints = <ICameraConstraints>{
-                audio: this._constraints.audio,
-                video: {
-                    width: this._constraints.video.width,
-                    height: this._constraints.video.height,
-                    deviceId: {
-                        exact: d.deviceId
-                    },
-                    facingMode: undefined
-                }
-            };
-            this.checkStream(d, newConstraints).then(res => {
-                if (res) {
-                    loaded++;
-                    if (loaded === this._allCameras.length) {
-                        this.checkCamerasLoaded();
-                    }
-                } else {
-                    newConstraints.video.width = undefined;
-                    newConstraints.video.height = undefined;
-                    this.checkStream(d, newConstraints).then(() => {
-                        loaded++;
-                        if (loaded === this._allCameras.length) {
-                            this.checkCamerasLoaded();
-                        }
-                    });
-                }
-            });
-        });
-    }
+    private loadCameras(index?: number): void {
+        index = index !== undefined ? index : 0;
 
-    private checkCamerasLoaded() {
-        if (this._allCameras.length > 0 && this._frontCameras.length > 0 && this._rearCameras.length > 0) {
-            this._isLoading = false;
+        if (index >= this.allCameras.length) {
+            this.checkCamerasLoaded();
             return;
         }
 
-        let checkedUserFacing = false;
-        let checkedEnvironmentFacing = false;
-        if (this._frontCameras.length === 0) {
-            const newConstraints = <ICameraConstraints>{
-                audio: this._constraints.audio,
-                video: {
-                    width: undefined,
-                    height: undefined,
-                    deviceId: undefined,
-                    facingMode: {
-                        exact: 'user'
-                    }
-                }
-            };
-            this.checkStream(<MediaDeviceInfo>{ deviceId: 'user', label: 'Front Cam' }, newConstraints).then(() => {
-                checkedUserFacing = true;
-                if (checkedUserFacing && checkedEnvironmentFacing) {
-                    this._isLoading = false;
+        const camera = this._allCameras[index];
+        const newConstraints = <ICameraConstraints>{
+            audio: this._constraints.audio,
+            video: {
+                width: this._constraints.video.width,
+                height: this._constraints.video.height,
+                deviceId: {
+                    exact: camera.deviceId
+                },
+                facingMode: undefined
+            }
+        };
+        this.checkStream(camera, newConstraints)
+            .then(res => {
+                if (res) {
+                    this.loadCameras(index! + 1);
+                } else {
+                    newConstraints.video.width = undefined;
+                    newConstraints.video.height = undefined;
+                    this.checkStream(camera, newConstraints).then(() => {
+                        this.loadCameras(index! + 1);
+                    });
                 }
             });
+    }
+
+    private checkCamerasLoaded(skipFront?: boolean, skipRear?: boolean) {
+        if (this._allCameras.length > 0 && this._frontCameras.length > 0 && this._rearCameras.length > 0) {
+            this._isLoading = false;
+            this._initializeResolve!('All available cameras accounted for');
+            return;
         }
 
-        if (this._rearCameras.length === 0) {
-            const newConstraints = <ICameraConstraints>{
-                audio: this._constraints.audio,
-                video: {
-                    width: undefined,
-                    height: undefined,
-                    deviceId: undefined,
-                    facingMode: {
-                        exact: 'environment'
-                    }
+        const newConstraints = <ICameraConstraints>{
+            audio: this._constraints.audio,
+            video: {
+                width: undefined,
+                height: undefined,
+                deviceId: undefined,
+                facingMode: {
+                    exact: ''
                 }
-            };
-            this.checkStream(<MediaDeviceInfo>{ deviceId: 'environment', label: 'Back Cam' }, newConstraints).then(() => {
-                checkedEnvironmentFacing = true;
-                if (checkedUserFacing && checkedEnvironmentFacing) {
-                    this._isLoading = false;
-                }
+            }
+        };
+
+        if (this._frontCameras.length === 0 && !skipFront) {
+            newConstraints.video.facingMode!.exact = 'user';
+            this.checkStream(<MediaDeviceInfo>{ deviceId: 'user', label: 'Front Cam' }, newConstraints).then(() => {
+                this.checkCamerasLoaded(true);
             });
+            return;
         }
+
+        newConstraints.video.facingMode!.exact = 'environment';
+        if (this._rearCameras.length === 0 && !skipRear) {
+            this.checkStream(<MediaDeviceInfo>{ deviceId: 'environment', label: 'Back Cam' }, newConstraints).then(() => {
+                this.checkCamerasLoaded(skipFront, true);
+            });
+            return;
+        }
+
+        this._isLoading = false;
+        this._initializeResolve!('All available cameras accounted for');
     }
 
     private checkStream(device: ICamera, constraints: ICameraConstraints): Promise<boolean> {
@@ -300,7 +292,6 @@ export class Camera {
                 return true;
             })
             .catch(err => {
-                console.error(`Camera ${device.deviceId} not available.`, err);
                 return false;
             });
     }
